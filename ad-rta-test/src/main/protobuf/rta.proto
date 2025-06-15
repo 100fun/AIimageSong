@@ -1,0 +1,237 @@
+syntax = 'proto3';
+
+package com.alipay.adbasiclib.rta.proto;
+option java_package = "com.alipay.adbasiclib.rta.proto";
+option java_multiple_files = true;
+
+message RtaRequest {
+  // 支付宝userId
+  string user_id = 1;
+  // 集团oneId
+  string one_id = 2;
+  // 请求id（必填）
+  // 单次请求唯一标识
+  string req_id = 3;
+  // 待响应 rta_id 列表
+  // 自2024-12-01起废弃，原用于指定广告主应响应哪些rta_id的参竞信息，现改为询问所有rta_id的参竞信息，不再透传
+  repeated RtaReqInfo rta_req_info = 4 [deprecated = true];
+  // 流量信息
+  // 自2024-08-05起废弃
+  repeated MediaInfo media_info = 5 [deprecated = true];
+  // 设备信息
+  // 设备信息的各个字段，若获取成功则透传
+  DeviceInfo device_info = 6;
+  // 请求时间戳（必填）
+  // 灯火发出RTA请求的机器时间，可用于耗时统计，13位毫秒级时间戳
+  int64 request_time = 7;
+  // ping请求
+  // 用于探测网络延迟，为true时请跳过业务处理并立即返回
+  bool is_ping = 8;
+  // 联合实验参数
+  // 可忽略，暂不支持该字段
+  map<string, string> experiment_strategy = 9;
+
+  message MediaInfo {
+    // 支付宝广告位id
+    string ad_pos_id = 1;
+    // 媒体类型
+    // 1-展示; 2-互动; 4-外投
+    string media_group = 2;
+    // 媒体主账号
+    string media_account = 3;
+    // 展位粒度扩展信息
+    map<string, string> ext_info = 4;
+    // 小程序appId
+    string app_id = 5;
+  }
+
+  message DeviceInfo {
+    // 操作系统
+    OsType osType = 1;
+    // 位置信息
+    Geo geo = 2;
+    // 支付宝客户端版本号
+    string alipay_client_version = 3;
+    // 设备ID
+    // 由于数据合规政策，目前仅只支持以下设备号类型：IDFA_MD5、OAID_MD5、CAID
+    // 若支付宝无法获取该用户的设备信息，默认不进行RTA请求并过滤全部广告创意，若需要此类流量可沟通放开
+    repeated DeviceID device_id = 4;
+  }
+
+  message DeviceID {
+    // 设备号类型
+    IDType type = 1;
+    // 设备号值
+    string value = 2;
+    // 设备号类型版本
+    // 仅CAID使用，当前支持20220111、20230330版本
+    string version = 3;
+  }
+
+  enum IDType {
+    // IDFA设备号的MD5摘要，32字节小写字符串
+    IDFA_HASH = 0;
+    // OAID设备号的MD5摘要，32字节小写字符串
+    OAID_HASH = 1;
+    // IOS下中国广告协会提出的设备号原始值
+    CAID = 2;
+  }
+
+  enum OsType {
+    UNKNOWN = 0;
+    IOS = 1;
+    ANDROID = 2;
+  }
+
+  message Geo {
+    // 6位城市国标码
+    string city_code = 1;
+    // 经度，火星坐标系
+    double longitude = 2;
+    // 维度，火星坐标系
+    double latitude = 3;
+  }
+}
+
+message RtaReqInfo {
+  // RTA投放策略id（必填）
+  // 可用于广告主内部区分不同的RTA投放策略
+  // 在支付宝推广平台的“RTA管理”页面中添加，rta_id可绑定在单元或计划维度，对这些单元或计划下所有广告创意生效
+  // rta_id配置指南：https://adpub.alipay.com/lark/adrlark/ay7tiri5pkn8qglw
+  string rta_id = 1;
+  // 广告创意id
+  // 自2024-12-01起废弃，统一使用rta_id
+  string ad_id = 2 [deprecated = true];
+  // 外部adId
+  // 二方广告主marketingApi接入场景透传
+  // 废弃，创意维度字段不再透传
+  string out_id = 3 [deprecated = true];
+  // 支付宝灯火广告套餐订单ID
+  // 废弃，创意维度字段不再透传
+  string order_id = 4 [deprecated = true];
+  // 个性化出价开关
+  // 废弃，个性化出价默认开启
+  bool enable_bid_info = 5 [deprecated = true];
+  // 广告计费方式
+  // 部分场景使用，取值：CPM/CPC/CPA
+  // 废弃，创意维度字段不再透传
+  string charge_type = 6 [deprecated = true];
+  // 扩展信息
+  // 可忽略，保留字段
+  map<string, string> ext_info = 7;
+}
+
+// 实验分桶id
+enum BucketId {
+  // 无需分流\无需实验
+  UNKNOWN = 0;
+  BUCKET_ID_1 = 1;
+  BUCKET_ID_2 = 2;
+  BUCKET_ID_3 = 3;
+  BUCKET_ID_4 = 4;
+  BUCKET_ID_5 = 5;
+  BUCKET_ID_6 = 6;
+  BUCKET_ID_7 = 7;
+  BUCKET_ID_8 = 8;
+  BUCKET_ID_9 = 9;
+  BUCKET_ID_10 = 10;
+}
+
+message RtaResponse {
+  // 响应码（必填）
+  // 0表示成功；非0表示响应异常，过滤全部广告创意
+  int32 ret_code = 1;
+  // 请求id（必填）
+  // 对应请求中的req_id
+  string req_id = 2;
+  // 参竞信息列表（必填）
+  // 关键字段，在此填写所有rta_id的参竞、出价等信息
+  // 未返回参竞信息的rta_id，默认不参竞
+  repeated RtaData rta_data = 3;
+  // 响应时间戳（必填）
+  // 服务端处理完成的时间，13位毫秒级时间戳
+  int64 response_time = 4;
+  // 响应耗时（必填）
+  // 服务端处理耗时，单位毫秒
+  int32 process_time_ms = 5;
+  // 外部userId
+  // 比如饿了么UID，二方广告主回传
+  string out_user_id = 6;
+  // 错误信息
+  // ret_code非0时填写具体错误信息
+  string ret_msg = 7;
+  // 归因key
+  // 用于RTA回传归因ID时使用
+  AttributeKey attribute_key = 8;
+  // 响应缓存时间
+  // 0（或未填写）：默认缓存10分钟
+  // -1（任意负数）：不缓存
+  // [1-10080]（1分钟-1周）：缓存指定分钟，越界时取上下界
+  int32 cache_minutes = 9;
+  // 客户自分桶实验id
+  // 非通用字段，仅加白客户生效
+  BucketId bucket_id = 10;
+
+  message RtaData {
+    // 生效的范围rta_id（必填）
+    RtaReqInfo rta_req_info = 1;
+    // 是否参竞
+    // true：参与竞价，该rta_id下的广告创意进入竞价环节，竞得后才会展示广告创意
+    // false（默认值）：不参竞，过滤该rta_id下的广告创意
+    bool is_bid = 2;
+    // 排除的展位id
+    repeated string exclude_ad_pos_id = 3 [deprecated = true];
+    // RTA出价
+    // 废弃，请使用bidInfo
+    int32 rta_bid = 4 [deprecated = true];
+    // 用于对rta队列打分，辅助本次参竞的所有广告的排序，排序按score从大到小排
+    double sort_score = 5  [deprecated = true];
+    // 扩展信息
+    // 比如需要动态获取的券信息，从该字段回传
+    // 非通用字段，kv取值应与支付宝灯火沟通约定
+    map<string, string> ext_info = 6;
+    // 出价信息
+    repeated BidInfo bidInfo = 7;
+    // 联合建模参数
+    // 非通用字段，kv取值应与支付宝灯火沟通约定
+    map<string, string> union_model_param = 8;
+    // 动态创意信息
+    // 非通用字段，kv取值应与支付宝灯火沟通约定
+    map<string, string> dynamic_creative_info = 10;
+
+    // 出价信息
+    message BidInfo {
+      // 出价类型
+      BidType bidType = 1;
+      // 值
+      // 按BidType指定含义
+      double value = 2;
+    }
+
+    // 出价类型
+    enum BidType {
+      // 不干预
+      NONE = 0;
+      // 直接出价（目标转化成本）
+      // BidInfo中value为出价值，单位为分
+      RTA_BID = 1;
+      // 溢价系数（广告出价 = 平台出价 * 溢价系数）
+      // BidInfo中value为溢价系数，默认值：1，有效范围：[0.8-1.2]，在有效范围外时取上下界
+      // 非通用功能，仅加白客户生效
+      BOOST_COEF = 2;
+    }
+  }
+
+  // 归因key
+  // 支持类型同设备号类型IDType
+  enum AttributeKey {
+    // 无效ID，无需/无法归因
+    INVALID_ID = 0;
+    // IDFA设备号的MD5摘要，32字节小写字符串
+    IDFA_HASH = 1;
+    // OAID设备号的MD5摘要，32字节小写字符串
+    OAID_HASH = 2;
+    // IOS下中国广告协会提出的设备号原始值
+    CAID = 3;
+  }
+}
